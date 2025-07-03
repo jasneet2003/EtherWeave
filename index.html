@@ -250,7 +250,13 @@
             
             async function connectWallet() {
                 if (typeof window.ethereum === 'undefined') {
-                    statusText.textContent = "No wallet detected. Please install MetaMask or use a mobile wallet browser.";
+                    // **FIX:** Add a mobile-specific check for a better user experience.
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        statusText.textContent = "To use this app, please open this page inside the MetaMask app's built-in browser.";
+                    } else {
+                        statusText.textContent = "No wallet detected. Please install the MetaMask browser extension.";
+                    }
                     return;
                 }
                 
