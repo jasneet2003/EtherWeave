@@ -3,117 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Collaborative Canvas</title>
+    <title>EtherWeave - Collaborative On-Chain Pixel Art Canvas</title>
+    <meta name="description" content="Join EtherWeave, a decentralized pixel art dApp where every pixel is stored forever on the blockchain. Collaborate in real-time to create a shared masterpiece.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        /* Basic CSS Reset & Body Styling */
+        :root {
+            --background-color: #0d0c1d;
+            --primary-color: #a855f7; /* Purple */
+            --secondary-color: #6d28d9; /* Darker Purple */
+            --glass-color: rgba(22, 21, 41, 0.4);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-color: #e0e0e0;
+            --text-color-dark: #9ca3af;
+        }
+
+        /* --- Basic CSS Reset & Body Styling --- */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #e0e0e0;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             overflow: hidden;
-            touch-action: none; /* Prevents double-tap to zoom on mobile */
+            touch-action: none; 
         }
 
-        /* Header Styling */
+        /* --- Live Animated Background --- */
+        #background-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* --- Main App Container --- */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 1.5s ease-in-out;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Glassmorphism Card Effect --- */
+        .glass-card {
+            background: var(--glass-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* --- Header Styling (ALIGNMENT FIX) --- */
         .header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px; /* Creates consistent spacing between header elements */
+            margin-bottom: 25px;
             text-align: center;
-            margin-bottom: 20px;
         }
         .header h1 {
+            font-family: 'Teko', sans-serif;
             margin: 0;
-            font-size: 1.8em;
+            font-size: 4em;
+            font-weight: 500;
             color: #fff;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px var(--primary-color), 0 0 20px var(--primary-color);
         }
         .header p {
-            margin: 4px 0 0;
-            color: #888;
+            margin: 0;
+            color: var(--text-color-dark);
+            transition: color 0.3s ease;
         }
         #connect-button {
-            background-color: #6d28d9;
+            background-image: linear-gradient(to right, var(--primary-color), var(--secondary-color));
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
             font-size: 1em;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
-            transition: background-color 0.3s ease;
+            margin-top: 12px; /* Replaced gap with a bit more top margin for the button */
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         #connect-button:hover {
-            background-color: #5b21b6;
+            transform: translateY(-3px);
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.9);
+        }
+        #connect-button:active {
+            transform: translateY(-1px);
         }
 
-        /* Main Canvas Container */
+        /* --- Main Canvas Container --- */
         #canvas-container {
             display: grid;
             grid-template-columns: repeat(50, 1fr);
             grid-template-rows: repeat(50, 1fr);
-            width: 90vmin; /* vmin makes it responsive to the smaller screen dimension */
-            height: 90vmin;
-            border: 2px solid #555;
-            background-color: #333; /* Darker background for loading */
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            width: 85vmin; 
+            height: 85vmin;
+            max-width: 600px;
+            max-height: 600px;
+            background-color: rgba(13, 12, 29, 0.5);
+            padding: 10px;
         }
 
-        /* Individual Pixel Styling */
+        /* --- Individual Pixel Styling --- */
         .pixel {
             width: 100%;
             height: 100%;
-            background-color: #f0f0f0; /* Default empty color */
-            /* A subtle grid line effect */
-            box-shadow: inset 0 0 0 0.5px #555; 
+            background-color: #3a3a5a; 
+            border-radius: 2px;
             cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.3s ease;
         }
         .pixel:hover {
-            outline: 1px solid #fff;
+            transform: scale(1.2);
             z-index: 10;
+            outline: 1px solid var(--primary-color);
         }
 
-        /* Color Palette Styling */
+        /* --- Color Palette Styling --- */
         #palette {
-            margin-top: 20px;
+            margin-top: 25px;
             display: flex;
             gap: 15px;
+            padding: 15px 25px;
         }
         .color-option {
             width: 40px;
             height: 40px;
             border-radius: 50%;
             cursor: pointer;
-            border: 3px solid #444;
-            transition: transform 0.2s ease, border-color 0.2s ease;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
         }
         .color-option:hover {
-            transform: scale(1.1);
+            transform: scale(1.15);
         }
         .color-option.selected {
-            border-color: #fff;
-            transform: scale(1.2);
-            box-shadow: 0 0 15px var(--glow-color, #fff);
+            border-color: var(--primary-color);
+            transform: scale(1.25);
+            box-shadow: 0 0 20px var(--glow-color, #fff);
+        }
+
+        /* --- Help Icon and Modal --- */
+        #help-icon {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: var(--glass-color);
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        #help-icon:hover {
+            box-shadow: 0 0 20px var(--primary-color);
+            transform: scale(1.1);
+        }
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        #modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #modal-content {
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.4s ease;
+        }
+        #modal-overlay.visible #modal-content {
+            transform: scale(1);
+        }
+        #modal-content h2 {
+            font-family: 'Teko', sans-serif;
+            font-size: 2.5em;
+            margin-top: 0;
+            letter-spacing: 1px;
+            color: var(--primary-color);
+        }
+        #modal-content p, #modal-content li {
+            color: var(--text-color-dark);
+            line-height: 1.6;
+        }
+        #modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
         }
 
     </style>
 </head>
 <body>
+    <canvas id="background-canvas"></canvas>
 
-    <div class="header">
-        <h1>The Indore Canvas</h1>
-        <p id="status-text">Please connect your wallet to begin.</p>
-        <button id="connect-button">Connect Wallet</button>
+    <div id="help-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-color);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
     </div>
 
-    <div id="canvas-container">
-        <!-- The 2500 pixel divs will be generated here by JavaScript -->
+    <div id="modal-overlay">
+        <div id="modal-content" class="glass-card">
+            <div id="modal-close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-color-dark);"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+            <h2>Welcome to EtherWeave</h2>
+            <p>This is a collaborative artwork powered by the blockchain. Every pixel you see is stored on-chain, creating a permanent, decentralized piece of art made by everyone who visits.</p>
+            <h2>How to use it?</h2>
+            <ol>
+                <li><strong>Connect Wallet:</strong> Click the button to connect your Web3 wallet (like MetaMask).</li>
+                <li><strong>Pick a Color:</strong> Choose your desired color from the palette below.</li>
+                <li><strong>Paint a Pixel:</strong> Tap any pixel on the grid to paint it. You'll need to confirm the transaction in your wallet.</li>
+            </ol>
+            <p><small>This dApp runs on the Sepolia testnet. Transactions require a small amount of free Sepolia ETH for gas fees.</small></p>
+        </div>
     </div>
 
-    <div id="palette">
-        <!-- The color options will be generated here by JavaScript -->
+    <div class="app-container">
+        <div class="header">
+            <h1>EtherWeave</h1>
+            <p id="status-text">Please connect your wallet to begin.</p>
+            <button id="connect-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"></path></svg>
+                <span>Connect Wallet</span>
+            </button>
+        </div>
+
+        <div id="canvas-container" class="glass-card">
+            <!-- The 2500 pixel divs will be generated here by JavaScript -->
+        </div>
+
+        <div id="palette" class="glass-card">
+            <!-- The color options will be generated here by JavaScript -->
+        </div>
     </div>
 
     <!-- 1. Include the Ethers.js library -->
@@ -127,11 +294,14 @@
                 return; 
             }
 
-            // --- SETUP ---
+            // --- UI SETUP ---
             const canvasContainer = document.getElementById('canvas-container');
             const paletteContainer = document.getElementById('palette');
             const statusText = document.getElementById('status-text');
             const connectButton = document.getElementById('connect-button');
+            const helpIcon = document.getElementById('help-icon');
+            const modalOverlay = document.getElementById('modal-overlay');
+            const modalClose = document.getElementById('modal-close');
             const GRID_SIZE = 50;
             const COLORS = ["#FFFFFF", "#FFD700", "#FF5733", "#FF0000", "#0000FF", "#138808", "#000000"];
             let selectedColor = COLORS[0];
@@ -199,7 +369,7 @@
             async function handlePixelClick(x, y) {
                 if (!writeableContract) {
                     statusText.textContent = "Please connect your wallet first.";
-                    connectButton.style.display = 'block';
+                    connectButton.style.display = 'flex';
                     return;
                 }
 
@@ -227,7 +397,7 @@
                         for (let x = 0; x < GRID_SIZE; x++) {
                             const color = canvasState[x][y];
                             const pixelIndex = y * GRID_SIZE + x;
-                            pixels[pixelIndex].style.backgroundColor = (color && color !== "") ? color : "#f0f0f0";
+                            pixels[pixelIndex].style.backgroundColor = (color && color !== "") ? color : "#3a3a5a";
                         }
                     }
                     statusText.textContent = "Pick a color, then tap a pixel!";
@@ -250,7 +420,6 @@
             
             async function connectWallet() {
                 if (typeof window.ethereum === 'undefined') {
-                    // **FIX:** Add a mobile-specific check for a better user experience.
                     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                     if (isMobile) {
                         statusText.textContent = "To use this app, please open this page inside the MetaMask app's built-in browser.";
@@ -284,11 +453,90 @@
                 }
             }
 
+            // --- Animated Background Logic ---
+            const backgroundCanvas = document.getElementById('background-canvas');
+            const ctx = backgroundCanvas.getContext('2d');
+            let particles = [];
+            
+            function resizeCanvas() {
+                backgroundCanvas.width = window.innerWidth;
+                backgroundCanvas.height = window.innerHeight;
+            }
+
+            function createParticles() {
+                particles = [];
+                const particleCount = Math.floor(window.innerWidth / 30);
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: Math.random() * backgroundCanvas.width,
+                        y: Math.random() * backgroundCanvas.height,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        size: Math.random() * 1.5 + 0.5
+                    });
+                }
+            }
+
+            function animateBackground() {
+                ctx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+                
+                // Move particles
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0 || p.x > backgroundCanvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > backgroundCanvas.height) p.vy *= -1;
+                });
+
+                // Draw lines between nearby particles
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.1)';
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i; j < particles.length; j++) {
+                        const dist = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+                        if (dist < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                
+                // Draw particles
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.5)';
+                particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                requestAnimationFrame(animateBackground);
+            }
+
             // --- INITIALIZATION ---
             function init() {
                 createCanvas();
                 createPalette();
                 connectButton.addEventListener('click', connectWallet);
+
+                // Modal listeners
+                helpIcon.addEventListener('click', () => modalOverlay.classList.add('visible'));
+                modalClose.addEventListener('click', () => modalOverlay.classList.remove('visible'));
+                modalOverlay.addEventListener('click', (e) => {
+                    if (e.target === modalOverlay) {
+                        modalOverlay.classList.remove('visible');
+                    }
+                });
+                
+                // Init background
+                resizeCanvas();
+                createParticles();
+                animateBackground();
+                window.addEventListener('resize', () => {
+                    resizeCanvas();
+                    createParticles();
+                });
             }
             
             init();
