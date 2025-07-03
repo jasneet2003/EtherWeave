@@ -34,6 +34,20 @@
             margin: 4px 0 0;
             color: #888;
         }
+        #connect-button {
+            background-color: #6d28d9;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        #connect-button:hover {
+            background-color: #5b21b6;
+        }
 
         /* Main Canvas Container */
         #canvas-container {
@@ -90,7 +104,8 @@
 
     <div class="header">
         <h1>The Indore Canvas</h1>
-        <p id="status-text">Loading application...</p>
+        <p id="status-text">Please connect your wallet to begin.</p>
+        <button id="connect-button">Connect Wallet</button>
     </div>
 
     <div id="canvas-container">
@@ -101,17 +116,14 @@
         <!-- The color options will be generated here by JavaScript -->
     </div>
 
-    <!-- 1. Include the Ethers.js library from a different, reliable CDN (jsDelivr) -->
+    <!-- 1. Include the Ethers.js library -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" type="application/javascript"></script>
 
     <script>
-        // Use window.onload to ensure EVERYTHING including external scripts is loaded.
         window.onload = function() {
             // --- ROBUST INITIALIZATION ---
             if (typeof ethers === 'undefined') {
-                const statusText = document.getElementById('status-text');
-                statusText.textContent = "Fatal Error: Blockchain library failed to load.";
-                statusText.style.color = "#FF5733";
+                document.getElementById('status-text').textContent = "Fatal Error: Blockchain library failed to load.";
                 return; 
             }
 
@@ -119,24 +131,22 @@
             const canvasContainer = document.getElementById('canvas-container');
             const paletteContainer = document.getElementById('palette');
             const statusText = document.getElementById('status-text');
+            const connectButton = document.getElementById('connect-button');
             const GRID_SIZE = 50;
             const COLORS = ["#FFFFFF", "#FFD700", "#FF5733", "#FF0000", "#0000FF", "#138808", "#000000"];
             let selectedColor = COLORS[0];
             let pixels; 
 
             // --- BLOCKCHAIN SETUP ---
-            const contractAddress = "0x0C951fEA35cB08dC97a11af1432B504258486a05"; // <-- PASTE YOUR ADDRESS HERE
+            const contractAddress = "0x0C951fEA35cB08dC97a11af1432B504258486a05"; // Your contract address
             const contractABI = [{"inputs":[],"name":"getCanvas","outputs":[{"internalType":"string[50][50]","name":"","type":"string[50][50]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"x","type":"uint256"},{"internalType":"uint256","name":"y","type":"uint256"},{"internalType":"string","name":"color","type":"string"}],"name":"paintPixel","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"x","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"y","type":"uint256"},{"indexed":false,"internalType":"string","name":"color","type":"string"},{"indexed":false,"internalType":"address","name":"painter","type":"address"}],"name":"PixelPainted","type":"event"}];
-            
-            const SEPOLIA_CHAIN_ID = '0xaa36a7'; // Chain ID for Sepolia in hexadecimal
+            const SEPOLIA_CHAIN_ID = '0xaa36a7';
             
             let provider;
             let readOnlyContract;
             let writeableContract;
             let userWalletAddress;
 
-            const centralBankPrivateKey = "bf1988176236a4442495065818b44b7ab3994fa12de1804346bf57ea29963ee3";
-            
             // --- FUNCTIONS ---
 
             async function checkAndSwitchNetwork() {
@@ -152,7 +162,7 @@
                     return true;
                 } catch (switchError) {
                     console.error(switchError);
-                    statusText.textContent = "Please switch to the Sepolia network in MetaMask.";
+                    statusText.textContent = "Please switch to the Sepolia network in your wallet.";
                     return false;
                 }
             }
@@ -188,14 +198,13 @@
 
             async function handlePixelClick(x, y) {
                 if (!writeableContract) {
-                    statusText.textContent = "Wallet not ready. Please wait or connect MetaMask.";
+                    statusText.textContent = "Please connect your wallet first.";
+                    connectButton.style.display = 'block';
                     return;
                 }
 
-                if (window.ethereum) {
-                    const isCorrectNetwork = await checkAndSwitchNetwork();
-                    if (!isCorrectNetwork) return;
-                }
+                const isCorrectNetwork = await checkAndSwitchNetwork();
+                if (!isCorrectNetwork) return;
 
                 statusText.textContent = `Painting pixel (${x}, ${y})...`;
                 try {
@@ -204,7 +213,7 @@
                     await tx.wait();
                 } catch (error) {
                     console.error("Failed to paint pixel:", error);
-                    statusText.textContent = "Transaction failed. Not enough funds?";
+                    statusText.textContent = "Transaction failed. Do you have Sepolia ETH?";
                     setTimeout(() => statusText.textContent = "Pick a color, then tap a pixel!", 3000);
                 }
             }
@@ -224,7 +233,7 @@
                     statusText.textContent = "Pick a color, then tap a pixel!";
                 } catch (error) {
                     console.error("Could not fetch canvas:", error);
-                    statusText.textContent = "Error connecting. Is your contract address correct?";
+                    statusText.textContent = "Error connecting to the contract.";
                 }
             }
 
@@ -238,76 +247,42 @@
                     }
                 });
             }
+            
+            async function connectWallet() {
+                if (typeof window.ethereum === 'undefined') {
+                    statusText.textContent = "No wallet detected. Please install MetaMask or use a mobile wallet browser.";
+                    return;
+                }
+                
+                try {
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const isCorrectNetwork = await checkAndSwitchNetwork();
+                    if (!isCorrectNetwork) return;
 
-            async function init() {
+                    await provider.send("eth_requestAccounts", []);
+                    const signer = provider.getSigner();
+                    userWalletAddress = await signer.getAddress();
+                    
+                    readOnlyContract = new ethers.Contract(contractAddress, contractABI, provider);
+                    writeableContract = new ethers.Contract(contractAddress, contractABI, signer);
+                    
+                    statusText.textContent = `Connected: ${userWalletAddress.substring(0, 6)}...`;
+                    connectButton.style.display = 'none';
+
+                    await loadCanvasFromChain();
+                    listenForEvents();
+
+                } catch (error) {
+                    console.error("Connection failed:", error);
+                    statusText.textContent = "Wallet connection was rejected.";
+                }
+            }
+
+            // --- INITIALIZATION ---
+            function init() {
                 createCanvas();
                 createPalette();
-
-                // **REFACTORED HYBRID CONNECTION LOGIC**
-                if (typeof window.ethereum !== 'undefined') {
-                    // --- MetaMask Mode (Primary for Developer) ---
-                    statusText.textContent = "MetaMask detected! Please connect.";
-                    try {
-                        provider = new ethers.providers.Web3Provider(window.ethereum);
-                        const isCorrectNetwork = await checkAndSwitchNetwork();
-                        if (!isCorrectNetwork) return;
-
-                        await provider.send("eth_requestAccounts", []);
-                        const signer = provider.getSigner();
-                        userWalletAddress = await signer.getAddress();
-                        
-                        readOnlyContract = new ethers.Contract(contractAddress, contractABI, provider);
-                        writeableContract = new ethers.Contract(contractAddress, contractABI, signer);
-                        statusText.textContent = `Connected as ${userWalletAddress.substring(0, 6)}...`;
-                    } catch (error) {
-                        console.error("MetaMask connection failed:", error);
-                        statusText.textContent = "MetaMask connection rejected. Refresh to try again.";
-                        statusText.style.color = "#FF5733";
-                        return; // Stop if MetaMask connection fails
-                    }
-                } else {
-                    // --- Burner Wallet Mode (Fallback for Audience) ---
-                    statusText.textContent = "No wallet detected. Setting up a temporary one...";
-                    try {
-                        // **FINAL FIX:** Using a FallbackProvider for maximum reliability.
-                        const providerConfigs = [
-                            { provider: new ethers.providers.JsonRpcProvider("https://sepolia.cloudflare-eth.com"), priority: 1 },
-                            { provider: new ethers.providers.JsonRpcProvider("https://rpc.ankr.com/eth_sepolia"), priority: 2 },
-                            { provider: new ethers.providers.JsonRpcProvider("https://rpc.sepolia.org"), priority: 3 }
-                        ];
-                        provider = new ethers.providers.FallbackProvider(providerConfigs);
-                        
-                        await provider.getNetwork(); // Check if connection is alive
-                        
-                        readOnlyContract = new ethers.Contract(contractAddress, contractABI, provider);
-                        
-                        const userWallet = ethers.Wallet.createRandom().connect(provider);
-                        userWalletAddress = userWallet.address;
-                        writeableContract = new ethers.Contract(contractAddress, contractABI, userWallet);
-
-                        if (centralBankPrivateKey.length > 60) {
-                            const centralBankWallet = new ethers.Wallet(centralBankPrivateKey, provider);
-                            statusText.textContent = "Funding temporary wallet...";
-                            const tx = await centralBankWallet.sendTransaction({
-                                to: userWallet.address,
-                                value: ethers.utils.parseEther("0.005")
-                            });
-                            await tx.wait();
-                            statusText.textContent = "Wallet funded! Ready to paint.";
-                        } else {
-                             statusText.textContent = "Read-only mode (no bank configured).";
-                        }
-                    } catch (error) {
-                        console.error("Burner wallet setup failed:", error);
-                        statusText.textContent = "Could not connect to public blockchain node. Please try again later.";
-                        statusText.style.color = "#FF5733";
-                        return; // Stop if public node fails
-                    }
-                }
-
-                // If we've successfully connected one way or another, load the canvas and listen.
-                await loadCanvasFromChain();
-                listenForEvents();
+                connectButton.addEventListener('click', connectWallet);
             }
             
             init();
