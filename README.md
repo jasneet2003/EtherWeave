@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jasneet2003/EtherWeave" target="_blank">
+  <a href="https://jasneet2003.github.io/EtherWeave/" target="_blank">
     <img src="https://img.shields.io/badge/Live%20Demo-Launch%20EtherWeave-brightgreen?style=for-the-badge&logo=rocket" alt="Live Demo">
   </a>
 </p>
