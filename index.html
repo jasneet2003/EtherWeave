@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Collaborative Canvas</title>
+    <style>
+        /* Basic CSS Reset & Body Styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none; /* Prevents double-tap to zoom on mobile */
+        }
+
+        /* Header Styling */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.8em;
+            color: #fff;
+        }
+        .header p {
+            margin: 4px 0 0;
+            color: #888;
+        }
+
+        /* Main Canvas Container */
+        #canvas-container {
+            display: grid;
+            grid-template-columns: repeat(50, 1fr);
+            grid-template-rows: repeat(50, 1fr);
+            width: 90vmin; /* vmin makes it responsive to the smaller screen dimension */
+            height: 90vmin;
+            border: 2px solid #555;
+            background-color: #333; /* Darker background for loading */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Individual Pixel Styling */
+        .pixel {
+            width: 100%;
+            height: 100%;
+            background-color: #f0f0f0; /* Default empty color */
+            /* A subtle grid line effect */
+            box-shadow: inset 0 0 0 0.5px #555; 
+            cursor: pointer;
+        }
+        .pixel:hover {
+            outline: 1px solid #fff;
+            z-index: 10;
+        }
+
+        /* Color Palette Styling */
+        #palette {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid #444;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        .color-option.selected {
+            border-color: #fff;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px var(--glow-color, #fff);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>The Indore Canvas</h1>
+        <p id="status-text">Loading application...</p>
+    </div>
+
+    <div id="canvas-container">
+        <!-- The 2500 pixel divs will be generated here by JavaScript -->
+    </div>
+
+    <div id="palette">
+        <!-- The color options will be generated here by JavaScript -->
+    </div>
+
+    <!-- 1. Include the Ethers.js library from a different, reliable CDN (jsDelivr) -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" type="application/javascript"></script>
+
+    <script>
+        // Use window.onload to ensure EVERYTHING including external scripts is loaded.
+        window.onload = function() {
+            // --- ROBUST INITIALIZATION ---
+            if (typeof ethers === 'undefined') {
+                const statusText = document.getElementById('status-text');
+                statusText.textContent = "Fatal Error: Blockchain library failed to load.";
+                statusText.style.color = "#FF5733";
+                return; 
+            }
+
+            // --- SETUP ---
+            const canvasContainer = document.getElementById('canvas-container');
+            const paletteContainer = document.getElementById('palette');
+            const statusText = document.getElementById('status-text');
+            const GRID_SIZE = 50;
+            const COLORS = ["#FFFFFF", "#FFD700", "#FF5733", "#FF0000", "#0000FF", "#138808", "#000000"];
+            let selectedColor = COLORS[0];
+            let pixels; 
+
+            // --- BLOCKCHAIN SETUP ---
+            const contractAddress = "0x0C951fEA35cB08dC97a11af1432B504258486a05"; // <-- PASTE YOUR ADDRESS HERE
+            const contractABI = [{"inputs":[],"name":"getCanvas","outputs":[{"internalType":"string[50][50]","name":"","type":"string[50][50]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"x","type":"uint256"},{"internalType":"uint256","name":"y","type":"uint256"},{"internalType":"string","name":"color","type":"string"}],"name":"paintPixel","outputs":[],"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"x","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"y","type":"uint256"},{"indexed":false,"internalType":"string","name":"color","type":"string"},{"indexed":false,"internalType":"address","name":"painter","type":"address"}],"name":"PixelPainted","type":"event"}];
+            
+            const SEPOLIA_CHAIN_ID = '0xaa36a7'; // Chain ID for Sepolia in hexadecimal
+            
+            let provider;
+            let readOnlyContract;
+            let writeableContract;
+            let userWalletAddress;
+
+            const centralBankPrivateKey = "bf1988176236a4442495065818b44b7ab3994fa12de1804346bf57ea29963ee3";
+            
+            // --- FUNCTIONS ---
+
+            async function checkAndSwitchNetwork() {
+                try {
+                    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    if (currentChainId !== SEPOLIA_CHAIN_ID) {
+                        statusText.textContent = "Wrong network. Please switch to Sepolia.";
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: SEPOLIA_CHAIN_ID }],
+                        });
+                    }
+                    return true;
+                } catch (switchError) {
+                    console.error(switchError);
+                    statusText.textContent = "Please switch to the Sepolia network in MetaMask.";
+                    return false;
+                }
+            }
+
+            function createPalette() {
+                COLORS.forEach((color, index) => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.classList.add('color-option');
+                    colorDiv.style.backgroundColor = color;
+                    colorDiv.style.setProperty('--glow-color', color);
+                    colorDiv.addEventListener('click', () => {
+                        selectedColor = color;
+                        document.querySelectorAll('.color-option').forEach(c => c.classList.remove('selected'));
+                        colorDiv.classList.add('selected');
+                    });
+                    paletteContainer.appendChild(colorDiv);
+                    if (index === 0) colorDiv.classList.add('selected');
+                });
+            }
+
+            function createCanvas() {
+                canvasContainer.innerHTML = '';
+                for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                    const pixel = document.createElement('div');
+                    pixel.classList.add('pixel');
+                    const x = i % GRID_SIZE;
+                    const y = Math.floor(i / GRID_SIZE);
+                    pixel.addEventListener('click', () => handlePixelClick(x, y));
+                    canvasContainer.appendChild(pixel);
+                }
+                pixels = document.querySelectorAll('.pixel');
+            }
+
+            async function handlePixelClick(x, y) {
+                if (!writeableContract) {
+                    statusText.textContent = "Wallet not ready. Please wait or connect MetaMask.";
+                    return;
+                }
+
+                if (window.ethereum) {
+                    const isCorrectNetwork = await checkAndSwitchNetwork();
+                    if (!isCorrectNetwork) return;
+                }
+
+                statusText.textContent = `Painting pixel (${x}, ${y})...`;
+                try {
+                    const tx = await writeableContract.paintPixel(x, y, selectedColor, { gasLimit: 300000 });
+                    statusText.textContent = `Transaction sent! Waiting for confirmation...`;
+                    await tx.wait();
+                } catch (error) {
+                    console.error("Failed to paint pixel:", error);
+                    statusText.textContent = "Transaction failed. Not enough funds?";
+                    setTimeout(() => statusText.textContent = "Pick a color, then tap a pixel!", 3000);
+                }
+            }
+
+            async function loadCanvasFromChain() {
+                if (!readOnlyContract) return;
+                try {
+                    statusText.textContent = "Fetching canvas from the blockchain...";
+                    const canvasState = await readOnlyContract.getCanvas();
+                    for (let y = 0; y < GRID_SIZE; y++) {
+                        for (let x = 0; x < GRID_SIZE; x++) {
+                            const color = canvasState[x][y];
+                            const pixelIndex = y * GRID_SIZE + x;
+                            pixels[pixelIndex].style.backgroundColor = (color && color !== "") ? color : "#f0f0f0";
+                        }
+                    }
+                    statusText.textContent = "Pick a color, then tap a pixel!";
+                } catch (error) {
+                    console.error("Could not fetch canvas:", error);
+                    statusText.textContent = "Error connecting. Is your contract address correct?";
+                }
+            }
+
+            function listenForEvents() {
+                readOnlyContract.on("PixelPainted", (x, y, color, painter) => {
+                    const pixelIndex = y.toNumber() * GRID_SIZE + x.toNumber();
+                    pixels[pixelIndex].style.backgroundColor = color;
+                    if (userWalletAddress && painter.toLowerCase() === userWalletAddress.toLowerCase()) {
+                         statusText.textContent = `Your pixel was painted!`;
+                         setTimeout(() => statusText.textContent = "Pick a color, then tap a pixel!", 2000);
+                    }
+                });
+            }
+
+            async function init() {
+                createCanvas();
+                createPalette();
+
+                // **REFACTORED HYBRID CONNECTION LOGIC**
+                if (typeof window.ethereum !== 'undefined') {
+                    // --- MetaMask Mode (Primary for Developer) ---
+                    statusText.textContent = "MetaMask detected! Please connect.";
+                    try {
+                        provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const isCorrectNetwork = await checkAndSwitchNetwork();
+                        if (!isCorrectNetwork) return;
+
+                        await provider.send("eth_requestAccounts", []);
+                        const signer = provider.getSigner();
+                        userWalletAddress = await signer.getAddress();
+                        
+                        readOnlyContract = new ethers.Contract(contractAddress, contractABI, provider);
+                        writeableContract = new ethers.Contract(contractAddress, contractABI, signer);
+                        statusText.textContent = `Connected as ${userWalletAddress.substring(0, 6)}...`;
+                    } catch (error) {
+                        console.error("MetaMask connection failed:", error);
+                        statusText.textContent = "MetaMask connection rejected. Refresh to try again.";
+                        statusText.style.color = "#FF5733";
+                        return; // Stop if MetaMask connection fails
+                    }
+                } else {
+                    // --- Burner Wallet Mode (Fallback for Audience) ---
+                    statusText.textContent = "No wallet detected. Setting up a temporary one...";
+                    try {
+                        // **FINAL FIX:** Using a FallbackProvider for maximum reliability.
+                        const providerConfigs = [
+                            { provider: new ethers.providers.JsonRpcProvider("https://sepolia.cloudflare-eth.com"), priority: 1 },
+                            { provider: new ethers.providers.JsonRpcProvider("https://rpc.ankr.com/eth_sepolia"), priority: 2 },
+                            { provider: new ethers.providers.JsonRpcProvider("https://rpc.sepolia.org"), priority: 3 }
+                        ];
+                        provider = new ethers.providers.FallbackProvider(providerConfigs);
+                        
+                        await provider.getNetwork(); // Check if connection is alive
+                        
+                        readOnlyContract = new ethers.Contract(contractAddress, contractABI, provider);
+                        
+                        const userWallet = ethers.Wallet.createRandom().connect(provider);
+                        userWalletAddress = userWallet.address;
+                        writeableContract = new ethers.Contract(contractAddress, contractABI, userWallet);
+
+                        if (centralBankPrivateKey.length > 60) {
+                            const centralBankWallet = new ethers.Wallet(centralBankPrivateKey, provider);
+                            statusText.textContent = "Funding temporary wallet...";
+                            const tx = await centralBankWallet.sendTransaction({
+                                to: userWallet.address,
+                                value: ethers.utils.parseEther("0.005")
+                            });
+                            await tx.wait();
+                            statusText.textContent = "Wallet funded! Ready to paint.";
+                        } else {
+                             statusText.textContent = "Read-only mode (no bank configured).";
+                        }
+                    } catch (error) {
+                        console.error("Burner wallet setup failed:", error);
+                        statusText.textContent = "Could not connect to public blockchain node. Please try again later.";
+                        statusText.style.color = "#FF5733";
+                        return; // Stop if public node fails
+                    }
+                }
+
+                // If we've successfully connected one way or another, load the canvas and listen.
+                await loadCanvasFromChain();
+                listenForEvents();
+            }
+            
+            init();
+        };
+    </script>
+</body>
+</html>
