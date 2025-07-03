@@ -10,7 +10,7 @@ Weave a permanent masterpiece, one pixel at a time. On-chain.
 EtherWeave is a decentralized, collaborative art experiment built on the Ethereum blockchain. It's a shared digital canvas where every user can paint a single pixel. Each pixel's color and position are stored permanently on-chain in a smart contract, creating a digital tapestry that can never be modified or taken down.
 
 <p align="center">
-<a href="https://your-username.github.io/your-repo-name/" target="_blank">
+<a href="https://jasneet2003.github.io/indore-web3-demo/" target="_blank">
 <img src="https://img.shields.io/badge/Live%20Demo-Launch%20EtherWeave-brightgreen?style=for-the-badge&logo=rocket" alt="Live Demo">
 </a>
 </p>
